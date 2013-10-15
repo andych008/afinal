@@ -21,18 +21,13 @@ import net.tsz.afinal.annotation.view.EventListener;
 import net.tsz.afinal.annotation.view.Select;
 import net.tsz.afinal.annotation.view.ViewInject;
 import android.app.Activity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.AbsListView;
 
-public class FinalActivity extends Activity {
+public abstract class FinalActivity extends Activity {
 
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-	}
-	
 
 	public void setContentView(int layoutResID) {
 		super.setContentView(layoutResID);
@@ -46,108 +41,89 @@ public class FinalActivity extends Activity {
 	}
 
 
-
 	public void setContentView(View view) {
 		super.setContentView(view);
 		initView();
 	}
 
-
-
 	private void initView(){
 		Field[] fields = getClass().getDeclaredFields();
 		if(fields!=null && fields.length>0){
 			for(Field field : fields){
-				ViewInject viewInject = field.getAnnotation(ViewInject.class);
-				if(viewInject!=null){
-					int viewId = viewInject.id();
-					try {
-						field.setAccessible(true);
-						field.set(this,findViewById(viewId));
-					} catch (Exception e) {
-						e.printStackTrace();
+				try {
+					field.setAccessible(true);
+					
+					if(field.get(this)!= null )
+						continue;
+				
+					ViewInject viewInject = field.getAnnotation(ViewInject.class);
+					if(viewInject!=null){
+						
+						int viewId = viewInject.id();
+					    field.set(this,findViewById(viewId));
+					
+						setListener(field,viewInject.click(),Method.Click);
+						setListener(field,viewInject.longClick(),Method.LongClick);
+						setListener(field,viewInject.itemClick(),Method.ItemClick);
+						setListener(field,viewInject.itemLongClick(),Method.itemLongClick);
+						
+						Select select = viewInject.select();
+						if(!TextUtils.isEmpty(select.selected())){
+							setViewSelectListener(field,select.selected(),select.noSelected());
+						}
+						
 					}
-					
-					String clickMethod = viewInject.click();
-					if(!TextUtils.isEmpty(clickMethod))
-						setViewClickListener(field,clickMethod);
-					
-					String longClickMethod = viewInject.longClick();
-					if(!TextUtils.isEmpty(longClickMethod))
-						setViewLongClickListener(field,longClickMethod);
-					
-					String itemClickMethod = viewInject.itemClick();
-					if(!TextUtils.isEmpty(itemClickMethod))
-						setItemClickListener(field,itemClickMethod);
-					
-					String itemLongClickMethod = viewInject.itemLongClick();
-					if(!TextUtils.isEmpty(itemLongClickMethod))
-						setItemLongClickListener(field,itemLongClickMethod);
-					
-					Select select = viewInject.select();
-					if(!TextUtils.isEmpty(select.selected()))
-						setViewSelectListener(field,select.selected(),select.noSelected());
-					
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
 		}
 	}
 	
 	
-	private void setViewClickListener(Field field,String clickMethod){
-		try {
-			Object obj = field.get(this);
-			if(obj instanceof View){
-				((View)obj).setOnClickListener(new EventListener(this).click(clickMethod));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+	
+	private void setViewSelectListener(Field field,String select,String noSelect)throws Exception{
+		Object obj = field.get(this);
+		if(obj instanceof View){
+			((AbsListView)obj).setOnItemSelectedListener(new EventListener(this).select(select).noSelect(noSelect));
 		}
 	}
 	
-	private void setViewLongClickListener(Field field,String clickMethod){
-		try {
-			Object obj = field.get(this);
-			if(obj instanceof View){
-				((View)obj).setOnLongClickListener(new EventListener(this).longClick(clickMethod));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+	
+	private void setListener(Field field,String methodName,Method method)throws Exception{
+		if(methodName == null || methodName.trim().length() == 0)
+			return;
+		
+		Object obj = field.get(this);
+		
+		switch (method) {
+			case Click:
+				if(obj instanceof View){
+					((View)obj).setOnClickListener(new EventListener(this).click(methodName));
+				}
+				break;
+			case ItemClick:
+				if(obj instanceof AbsListView){
+					((AbsListView)obj).setOnItemClickListener(new EventListener(this).itemClick(methodName));
+				}
+				break;
+			case LongClick:
+				if(obj instanceof View){
+					((View)obj).setOnLongClickListener(new EventListener(this).longClick(methodName));
+				}
+				break;
+			case itemLongClick:
+				if(obj instanceof AbsListView){
+					((AbsListView)obj).setOnItemLongClickListener(new EventListener(this).itemLongClick(methodName));
+				}
+				break;
+			default:
+				break;
 		}
 	}
 	
-	private void setItemClickListener(Field field,String itemClickMethod){
-		try {
-			Object obj = field.get(this);
-			if(obj instanceof AbsListView){
-				((AbsListView)obj).setOnItemClickListener(new EventListener(this).itemClick(itemClickMethod));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	public enum Method{
+		Click,LongClick,ItemClick,itemLongClick
 	}
-	
-	private void setItemLongClickListener(Field field,String itemClickMethod){
-		try {
-			Object obj = field.get(this);
-			if(obj instanceof AbsListView){
-				((AbsListView)obj).setOnItemLongClickListener(new EventListener(this).itemLongClick(itemClickMethod));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	private void setViewSelectListener(Field field,String select,String noSelect){
-		try {
-			Object obj = field.get(this);
-			if(obj instanceof View){
-				((AbsListView)obj).setOnItemSelectedListener(new EventListener(this).select(select).noSelect(noSelect));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
 	
 }
